@@ -1,0 +1,107 @@
+# docker-compose.yml
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+      - chromadb
+      - postgres
+    environment:
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - CHROMADB_URL=${CHROMADB_URL:-http://chromadb:8000}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/postgres}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-3-5-sonnet-20241022}
+      - ANTHROPIC_MAX_TOKENS=${ANTHROPIC_MAX_TOKENS:-2000}
+      - ANTHROPIC_TEMPERATURE=${ANTHROPIC_TEMPERATURE:-0.1}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
+      - OPENAI_MAX_TOKENS=${OPENAI_MAX_TOKENS:-2000}
+      - OPENAI_TEMPERATURE=${OPENAI_TEMPERATURE:-0.1}
+      - PRIMARY_LLM=${PRIMARY_LLM:-anthropic}
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+      - ENABLE_HEALTH_CHECKS=${ENABLE_HEALTH_CHECKS:-true}
+      - HEALTH_CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-30}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      - CELERY_TASK_SERIALIZER=${CELERY_TASK_SERIALIZER:-json}
+      - CELERY_RESULT_SERIALIZER=${CELERY_RESULT_SERIALIZER:-json}
+      - CELERY_ACCEPT_CONTENT=${CELERY_ACCEPT_CONTENT:-json}
+      - CELERY_TIMEZONE=${CELERY_TIMEZONE:-UTC}
+      - CELERY_ENABLE_UTC=${CELERY_ENABLE_UTC:-true}
+      - PYTHONPATH=/app
+    volumes:
+      - ./app:/app/app
+      - ./main.py:/app/main.py
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/app
+
+  worker:
+    build: .
+    depends_on:
+      - redis
+      - chromadb
+      - postgres
+    environment:
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - CHROMADB_URL=${CHROMADB_URL:-http://chromadb:8000}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/postgres}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-3-5-sonnet-20241022}
+      - ANTHROPIC_MAX_TOKENS=${ANTHROPIC_MAX_TOKENS:-2000}
+      - ANTHROPIC_TEMPERATURE=${ANTHROPIC_TEMPERATURE:-0.1}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
+      - OPENAI_MAX_TOKENS=${OPENAI_MAX_TOKENS:-2000}
+      - OPENAI_TEMPERATURE=${OPENAI_TEMPERATURE:-0.1}
+      - PRIMARY_LLM=${PRIMARY_LLM:-anthropic}
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+      - ENABLE_HEALTH_CHECKS=${ENABLE_HEALTH_CHECKS:-true}
+      - HEALTH_CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-30}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      - CELERY_TASK_SERIALIZER=${CELERY_TASK_SERIALIZER:-json}
+      - CELERY_RESULT_SERIALIZER=${CELERY_RESULT_SERIALIZER:-json}
+      - CELERY_ACCEPT_CONTENT=${CELERY_ACCEPT_CONTENT:-json}
+      - CELERY_TIMEZONE=${CELERY_TIMEZONE:-UTC}
+      - CELERY_ENABLE_UTC=${CELERY_ENABLE_UTC:-true}
+      - PYTHONPATH=/app
+    volumes:
+      - ./app:/app/app
+      - ./main.py:/app/main.py
+    command: celery -A app.tasks.celery_app worker --loglevel=info
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  chromadb:
+    image: chromadb/chroma:0.4.15
+    ports:
+      - "8001:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+    environment:
+      - CHROMA_HOST=0.0.0.0
+      - CHROMA_PORT=8000
+
+  postgres:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  redis_data:
+  chromadb_data:
+  postgres_data:
